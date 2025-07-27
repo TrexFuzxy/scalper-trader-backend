@@ -22,7 +22,10 @@ firebase_service = FirebaseService()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all origins for testing
+    allow_origins=[
+        "http://localhost:3000",  # for local dev
+        "https://scalper-trader-frontend.vercel.app"  # for production
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
