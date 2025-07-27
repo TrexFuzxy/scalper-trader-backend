@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header, Depends
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -13,8 +13,13 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Scalper Trader API", version="2.0.0")
-security = HTTPBearer(auto_error=False)
+router = APIRouter(strict_slashes=False)
+
+app = FastAPI(
+    title="Scalper Trader API",
+    description="API for analyzing trading charts and providing signals.",
+    version="1.0.0",
+)
 
 # Initialize services
 technical_analyzer = TechnicalAnalyzer()
@@ -24,7 +29,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # for local dev
-        "https://scalper-trader-frontend.vercel.app"  # for production
+        "https://scalper-trader-frontend.vercel.app",  # for production
+        "https://scalper-trader-frontend-jqkib2wqr-trexfuzxys-projects.vercel.app" # for vercel preview
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -34,8 +40,10 @@ app.add_middleware(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+app.include_router(router)
+
 # Authentication helper
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[dict]:
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Optional[dict]:
     """Get current user from Firebase token"""
     if not credentials:
         return None
@@ -43,7 +51,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     user = firebase_service.verify_token(credentials.credentials)
     return user
 
-@app.get("/")
+@router.get("/")
 def root():
     return {
         "message": "Scalper Trader API v2.0 - Advanced Trading Signals", 
@@ -52,7 +60,7 @@ def root():
         "endpoints": ["/analyze/", "/signals/", "/feedback/", "/risk/", "/stats/"]
     }
 
-@app.get("/health")
+@router.get("/health")
 def health_check():
     return {
         "status": "healthy", 
@@ -61,7 +69,7 @@ def health_check():
         "technical_analysis": "enabled"
     }
 
-@app.post("/analyze/")
+@router.post("/analyze/")
 async def analyze(
     file: UploadFile = File(...), 
     timeframe: str = Form(...), 
@@ -140,7 +148,7 @@ async def analyze(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
-@app.get("/signals/")
+@router.get("/signals/")
 def get_signals(
     user_id: str = None,
     limit: int = 50,
@@ -156,7 +164,7 @@ def get_signals(
     signals = firebase_service.get_user_signals(user_id, limit)
     return {"user_id": user_id, "signals": signals, "total": len(signals)}
 
-@app.get("/stats/")
+@router.get("/stats/")
 def get_user_stats(
     user_id: str = None,
     current_user: Optional[dict] = Depends(get_current_user)
@@ -171,7 +179,7 @@ def get_user_stats(
     stats = firebase_service.get_user_stats(user_id)
     return {"user_id": user_id, "stats": stats}
 
-@app.post("/feedback/")
+@router.post("/feedback/")
 def feedback(
     user_id: str = Form(...), 
     signal_id: str = Form(...), 
@@ -201,7 +209,7 @@ def feedback(
         "timestamp": time.time()
     }
 
-@app.post("/risk/")
+@router.post("/risk/")
 def risk_calculator(
     account_size: float = Form(...), 
     stop_loss: float = Form(...), 
@@ -240,7 +248,7 @@ def risk_calculator(
         }
     }
 
-@app.get("/market-analysis/")
+@router.get("/market-analysis/")
 def market_analysis(symbol: str = "XAUUSD", timeframe: str = "1h"):
     """Get general market analysis for a symbol"""
     # Mock market analysis (replace with real data feed)
